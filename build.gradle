@@ -1,12 +1,30 @@
+/**
+ * Немного базовой конфигурации build.gradle для кастомных настроек проекта
+ *
+ * В базовом формате проект состоит из плагинов которые включают в себя список сущностей,
+ * которые называются конфигурации.
+ * Конфигурации содержат такую информацию как: корень проекта, списки задач (tasks) и т.п.
+ * Например плагин 'java' включает в себя разметку директорий на main и test, возможность компиляции,
+ * большую часть базовых задач таких как build, clean, test, jar и т.п.
+ */
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.0.6'
 	id 'io.spring.dependency-management' version '1.1.0'
 }
 
+/**
+ * Здесь находится заголовок проекта и совместимая версия java, в данном случае 17
+ */
+
 group = 'sezergemtsov'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
+
+/**
+ * Ниже находятся настройки конфигураций, но почти все включены в плагины и настройки не требуют
+ */
 
 configurations {
 	compileOnly {
@@ -14,9 +32,38 @@ configurations {
 	}
 }
 
+/**
+ * Ниже приведена настройка директории, которая не включена в стандартный плагин
+ * Для примера мы подготовим директорию с тестом который будет запускаться отдельно от задачи test
+ * В данном примере srcDir показан для примера, но если название директории сходится с сущностью
+ * дополнительно указывать путь не требуется
+ */
+
+sourceSets {
+	my_folder {
+		java {
+			srcDirs 'src/my_folder/java'
+		}
+	}
+}
+
+/**
+ * Ниже находятся ссылка на репозиторий зависимостей
+ */
+
 repositories {
 	mavenCentral()
 }
+
+/**
+ * Ниже блок который отвечает за зависимости в проекте
+ * Здесь стоит обратить внимание на первое имя в каждой строке: это наименование
+ * ранее упомянутых сущностей конфигураций. Например implementation отвечает за зависимости
+ * в основных разделах, testImplementations за зависимости в разделе test, и конечно созданный
+ * нами раздел my_folder автоматически получает список конфигураций которые можно настраивать.
+ * В данном случае мы подключили зависимости JUnit к директории с нашим отдельным тестом,
+ * а также подключили testEngine для выполнения теста в runtime
+ */
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -32,13 +79,48 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	my_folderImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.6.0'
+	my_folderRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
 }
+
+/**
+ * Короткое поле, которое присутствует в базовом проекте отвечает за подключения JUnit5
+ * Для тестов написанных с использованием зависимостей JUnit4 и ниже не требуется
+ */
 
 tasks.named('test') {
 	useJUnitPlatform()
 }
 
-tasks.register('test_run') {
+/**
+ * Как в конструкции выше, данная запись модифицирует задачи (task)
+ * Так как gradle использует Groovy, блоки описываются с сущностями и методами, что дает
+ * возможность гибкой настройки. Из примеров мы можем ссылаться на другие задачи, обращаться
+ * к командной строке или терминалу и передавать команды, создавать конструкции в виде
+ * циклов и условных выражений, вытаскивать информацию из сущностей, таких как конфигурации.
+ * Задача ниже запускает стандартную задачу, но меняет среду
+ */
+
+tasks.register('second_properties_run') {
 	dependsOn('bootRun')
+	group = 'application'
 	bootRun.environment('spring.profiles.active', 'test')
+}
+
+/**
+ * Следующая задача написана для запуска отдельного теста. Мы также подключаем JUnit5,
+ * размещаем задачу рядом с другими задачами на тесты в разделе verification, определяем нашу директорию
+ * как источник тестов
+ * Дополнительно стоит упомянуть о фильтре, так как в рамках базовой директории
+ * можно влючать и исключать тестовые классы по заколовкам или именам директорий
+ */
+
+tasks.register('my_folder_test', Test) {
+	useJUnitPlatform()
+	group = "verification"
+	testClassesDirs = sourceSets.named('my_folder').getOrNull().output.classesDirs
+	classpath = sourceSets.my_folder.runtimeClasspath
+	filter{
+		excludeTestsMatching '*Not*'
+	}
 }
